@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Frontend para teste do backend</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    input, button { margin: 0.2em; }
+    .section { margin-bottom: 2em; }
+    textarea { width: 100%; height: 120px; }
+  </style>
+</head>
+<body>
+  <h2>Login</h2>
+  <div class="section">
+    <input id="login-email" placeholder="Email" type="email">
+    <input id="login-password" placeholder="Senha" type="password">
+    <button onclick="login()">Entrar</button>
+    <button onclick="logout()">Sair</button>
+  </div>
+  <textarea id="token" hidden></textarea>
+
+  <h2>Manipular Usuários (apenas SUPERUSER, ADMIN ou USER com permissão)</h2>
+  <h3>Criar Usuário</h3>
+  <div class="section">
+    <input id="cadastro-nome" placeholder="Nome">
+    <input id="cadastro-email" placeholder="Email" type="email">
+    <input id="cadastro-senha" placeholder="Senha" type="password">
+    <input id="cadastro-role" placeholder="1: SUPERUSER; 2: ADMIN; 3: USER" type="number">
+    <button onclick="cadastrar()">Cadastrar</button>
+  </div>
+
+  <h3>Editar Perfil</h3>
+  <div class="section">
+    <input id="perfil-cadastro-id" placeholder="ID do usuário" type="number">
+    <input id="perfil-cadastro-nome" placeholder="Nome">
+    <input id="perfil-cadastro-email" placeholder="Email" type="email">
+    <input id="perfil-cadastro-senha" placeholder="Senha" type="password">
+    <button onclick="editarPerfil()">Editar</button>
+  </div>
+
+  <h3>Conceder Permissão ao Módulo</h3>
+  <div class="section">
+    <input id="usuario-id" placeholder="ID do usuário" type="number">
+    <input id="module-id" placeholder="2: PERFIL; 3: FINANCEIRO; 4: RELATORIOS; 5: PRODUTOS" type="number">
+    <button onclick="concederPermissao()">Permitir</button>
+  </div>
+
+  <h2>Requisições autenticadas</h2>
+  <div class="section">
+    <button onclick="getUsers()">GET /users</button>
+    <button onclick="getPerfil()">GET /perfil</button>
+    <button onclick="getFinanceiro()">GET /financeiro</button>
+    <button onclick="getRelatorios()">GET /relatorios</button>
+    <button onclick="getProdutos()">GET /produtos</button>
+  </div>
+
+  <div class="section">
+    <input id="perfil-id" placeholder="Digite o ID do perfil:">
+    <button onclick="getPerfilById()">GET /perfil/:id</button>
+  </div>
+
+  <h3>Resposta da API:</h3>
+  <textarea id="resposta" readonly></textarea>
+
+  <script>
+    const API_URL = "http://localhost:3000";
+
+    function setResposta(data) {
+      document.getElementById('resposta').value = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    }
+
+    // Seta o token do login no localStorage
+    function setToken(token) {
+      if (token) {
+        localStorage.setItem('token', token);
+      } else {
+        localStorage.removeItem('token');
+      }
+    }
+
+    async function login() {
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      // Envia email e senha para o backend
+      const res = await fetch(`${API_URL}/auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      // Aguarda a resposta do authService com o token jwt
+      const data = await res.json();
+      if (data.access_token) {
+        setToken(data.access_token);
+        setResposta("Login realizado com sucesso!");
+      } else {
+        setToken('');
+        setResposta(data.message || JSON.stringify(data));
+      }
+    }
+
+    function logout() {
+      setToken('');
+      setResposta('Logout realizado!');
+    }
+
+    async function cadastrar() {
+      const name = document.getElementById('cadastro-nome').value;
+      const email = document.getElementById('cadastro-email').value;
+      const password = document.getElementById('cadastro-senha').value;
+      const roleId = Number(document.getElementById('cadastro-role').value);
+      const token = localStorage.getItem('token');
+
+      const body = {
+        name,
+        email,
+        password,
+        roleId
+      };
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = 'Bearer ' + token;
+      }
+      const res = await fetch(`${API_URL}/users`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      setResposta(data);
+    }
+
+    async function editarPerfil() {
+      const id = document.getElementById('perfil-cadastro-id').value;
+      const name = document.getElementById('perfil-cadastro-nome').value;
+      const email = document.getElementById('perfil-cadastro-email').value;
+      const password = document.getElementById('perfil-cadastro-senha').value;
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setResposta("Faça login primeiro!");
+        return;
+      }
+
+      // Monta o objeto so com os campos preenchidos
+      const body = {};
+      if (name) body.name = name;
+      if (email) body.email = email;
+      if (password) body.password = password;
+
+      if (Object.keys(body).length === 0) {
+        setResposta("Preencha pelo menos um campo para atualizar.");
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/perfil/${id}`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      setResposta(data);
+    }
+
+    async function concederPermissao() {
+      const userId = document.getElementById('usuario-id').value;
+      const moduleId = document.getElementById('module-id').value;
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setResposta("Faca login primeiro!");
+        return;
+      }
+      if (!userId || !moduleId) {
+        setResposta("Preencha os campos de ID do usuário e ID do modulo.");
+        return;
+      }
+      const res = await fetch(`${API_URL}/users-modules`, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json'
+         },
+        body: JSON.stringify({ userId: Number(userId), moduleId: Number(moduleId) })
+      });
+      const data = await res.json();
+      setResposta(data);
+    }
+
+    async function getUsers() { await getAutenticado('/users'); }
+    async function getPerfil() { await getAutenticado('/perfil'); }
+    async function getFinanceiro() { await getAutenticado('/financeiro'); }
+    async function getRelatorios() { await getAutenticado('/relatorios'); }
+    async function getProdutos() { await getAutenticado('/produtos'); }
+
+    async function getPerfilById() {
+      const id = document.getElementById('perfil-id').value;
+      if (!id) {
+        setResposta("Digite o ID do perfil no campo ao lado do botao");
+        return;
+      }
+      await getAutenticado(`/perfil/${id}`);
+    }
+
+    async function getAutenticado(endpoint) {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setResposta("Faca login primeiro!");
+        return;
+      }
+      const res = await fetch(`${API_URL}${endpoint}`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      setResposta(data);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Users {
+  id       Int    @id @default(autoincrement())
+  email    String @unique
+  name     String
+  password String
+
+  avatarUrl String?
+
+  role   Roles @relation(fields: [roleId], references: [id])
+  roleId Int   @default(3)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+
+  accessLogs AccessLog[]
+}
+
+model Roles {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  users Users[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+}
+
+model Modules {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  route String
+}
+
+model Roles_modules {
+  id       Int @id @default(autoincrement())
+  roleId   Int
+  moduleId Int
+}
+
+model Users_modules {
+  id         Int @id @default(autoincrement())
+  userId     Int
+  moduleId   Int
+  providedBy Int
+
+  providedAt DateTime @default(now())
+}
+
+model Financeiro {
+  id     Int    @id @default(autoincrement())
+  userId Int
+  entry  String
+
+  roleId Int
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+}
+
+model Relatorios {
+  id     Int    @id @default(autoincrement())
+  userId Int
+  text   String
+
+  roleId Int
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+}
+
+model Produtos {
+  id     Int @id @default(autoincrement())
+  userId Int
+
+  imgUrl String?
+
+  roleId Int
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+}
+
+model AccessLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  user      Users?    @relation(fields: [userId], references: [id])
+  ip        String?
+  userAgent String?
+  route     String?
+  permitted  Boolean
+  createdAt DateTime @default(now())
+}
